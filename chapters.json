@@ -1,0 +1,61 @@
+{
+  "11": {
+    "Physics": [
+      "Physical World",
+      "Units and Measurements",
+      "Motion in a Straight Line",
+      "Motion in a Plane",
+      "Laws of Motion",
+      "Work, Energy and Power",
+      "System of Particles and Rotational Motion",
+      "Gravitation",
+      "Mechanical Properties of Solids",
+      "Mechanical Properties of Fluids",
+      "Thermal Properties of Matter",
+      "Thermodynamics",
+      "Kinetic Theory",
+      "Oscillations",
+      "Waves"
+    ],
+    "Chemistry": [
+      "Some Basic Concepts of Chemistry",
+      "Structure of Atom",
+      "Classification of Elements and Periodicity",
+      "Chemical Bonding and Molecular Structure",
+      "Thermodynamics",
+      "Equilibrium",
+      "Redox Reactions",
+      "Organic Chemistry - Basic Principles",
+      "Hydrocarbons"
+    ],
+    "Biology": [
+      "The Living World",
+      "Biological Classification",
+      "Plant Kingdom",
+      "Animal Kingdom",
+      "Morphology of Flowering Plants",
+      "Anatomy of Flowering Plants",
+      "Structural Organisation in Animals",
+      "Cell: The Unit of Life",
+      "Biomolecules",
+      "Cell Cycle and Cell Division",
+      "Transport in Plants",
+      "Mineral Nutrition",
+      "Photosynthesis in Plants",
+      "Respiration in Plants",
+      "Plant Growth and Development",
+      "Digestion and Absorption",
+      "Breathing and Exchange of Gases",
+      "Body Fluids and Circulation",
+      "Excretory Products and their Elimination",
+      "Locomotion and Movement",
+      "Neural Control and Coordination",
+      "Chemical Coordination and Integration"
+    ]
+  },
+  "12": {
+    "Physics": [],
+    "Chemistry": [],
+    "Biology": []
+  }
+}
