@@ -18,6 +18,13 @@ CHANNEL_URL = "https://t.me/Neetmastry"
 GROUP_URL = "https://t.me/neetmastery0"
 
 
+# ---------- LOAD CHAPTERS ----------
+
+def load_chapters():
+    with open("chapters.json", "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
 # ---------- FORCE JOIN ----------
 
 async def check_membership(user_id, context):
@@ -156,35 +163,27 @@ async def show_main_menu(message):
     )
 
 
-# ---------- PRACTICE ----------
+# ---------- PRACTICE SUBJECT ----------
 
 async def practice_menu(query):
 
     keyboard = [
-        [
-            InlineKeyboardButton(
-                "⚡ Physics",
-                callback_data="subject_physics"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🧪 Chemistry",
-                callback_data="subject_chemistry"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🧬 Biology",
-                callback_data="subject_biology"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🔙 Back",
-                callback_data="back_home"
-            )
-        ],
+        [InlineKeyboardButton(
+            "⚡ Physics",
+            callback_data="subject_Physics"
+        )],
+        [InlineKeyboardButton(
+            "🧪 Chemistry",
+            callback_data="subject_Chemistry"
+        )],
+        [InlineKeyboardButton(
+            "🧬 Biology",
+            callback_data="subject_Biology"
+        )],
+        [InlineKeyboardButton(
+            "🔙 Back",
+            callback_data="back_home"
+        )],
     ]
 
     await query.message.edit_text(
@@ -195,32 +194,67 @@ async def practice_menu(query):
     )
 
 
+# ---------- CLASS MENU ----------
+
 async def class_menu(query, subject):
 
     keyboard = [
-        [
-            InlineKeyboardButton(
-                "📘 Class 11",
-                callback_data=f"class_11_{subject}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "📕 Class 12",
-                callback_data=f"class_12_{subject}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🔙 Back",
-                callback_data="practice"
-            )
-        ],
+        [InlineKeyboardButton(
+            "📘 Class 11",
+            callback_data=f"class_11_{subject}"
+        )],
+        [InlineKeyboardButton(
+            "📕 Class 12",
+            callback_data=f"class_12_{subject}"
+        )],
+        [InlineKeyboardButton(
+            "🔙 Back",
+            callback_data="practice"
+        )],
     ]
 
     await query.message.edit_text(
-        f"📚 *{subject.title()} Practice*\n\n"
+        f"📚 *{subject} Practice*\n\n"
         "Class choose karo 👇",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+
+
+# ---------- CHAPTER MENU ----------
+
+async def chapter_menu(query, class_num, subject):
+
+    chapters = load_chapters()
+
+    chapter_list = chapters.get(str(class_num), {}).get(subject, [])
+
+    if not chapter_list:
+        await query.message.edit_text(
+            "⚠️ Is class ke chapters abhi available nahi hain."
+        )
+        return
+
+    keyboard = []
+
+    for index, chapter in enumerate(chapter_list):
+        keyboard.append([
+            InlineKeyboardButton(
+                f"📖 {chapter}",
+                callback_data=f"chapter_{class_num}_{subject}_{index}"
+            )
+        ])
+
+    keyboard.append([
+        InlineKeyboardButton(
+            "🔙 Back",
+            callback_data=f"subject_{subject}"
+        )
+    ])
+
+    await query.message.edit_text(
+        f"📚 *Class {class_num} {subject}*\n\n"
+        "Chapter choose karo 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown",
     )
@@ -246,9 +280,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await class_menu(query, subject)
 
     elif data.startswith("class_"):
+
+        parts = data.split("_", 2)
+
+        class_num = parts[1]
+        subject = parts[2]
+
+        await chapter_menu(
+            query,
+            class_num,
+            subject
+        )
+
+    elif data.startswith("chapter_"):
+
         await query.message.edit_text(
-            "📚 Chapter selection system next step mein add hoga.\n\n"
-            "🔥 Difficult NEET-level questions ke liye ready raho!",
+            "🔥 *Chapter selected!*\n\n"
+            "Question system next step mein connect hoga.\n"
+            "Tough NEET-level questions ready honge 💪",
+            parse_mode="Markdown",
         )
 
     elif data == "back_home":
@@ -270,6 +320,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+
     app.add_handler(
         CallbackQueryHandler(button_handler)
     )
