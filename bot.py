@@ -1,13 +1,21 @@
 import os
 import json
 import random
+import asyncio
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from config import (
@@ -27,10 +35,12 @@ from database import (
     get_leaderboard,
 )
 
+from ai import ask_ai
 
-# =========================
+
+# =========================================================
 # FILE LOADERS
-# =========================
+# =========================================================
 
 def load_chapters():
     with open("chapters.json", "r", encoding="utf-8") as file:
@@ -42,9 +52,9 @@ def load_questions():
         return json.load(file)["questions"]
 
 
-# =========================
+# =========================================================
 # FORCE JOIN
-# =========================
+# =========================================================
 
 async def is_member(user_id, context):
 
@@ -59,7 +69,11 @@ async def is_member(user_id, context):
             user_id
         )
 
-        allowed = ["member", "administrator", "creator"]
+        allowed = [
+            "member",
+            "administrator",
+            "creator"
+        ]
 
         return (
             channel.status in allowed
@@ -70,7 +84,7 @@ async def is_member(user_id, context):
         return False
 
 
-async def force_join(update, context):
+async def force_join_message(message):
 
     keyboard = [
         [
@@ -93,21 +107,20 @@ async def force_join(update, context):
         ],
     ]
 
-    await update.message.reply_text(
-        "🔐 *Join Required*\n\n"
+    await message.reply_text(
+        "🔐 Join Required\n\n"
         "NEET Study Hub use karne ke liye pehle "
         "hamara Channel aur Group join karo.\n\n"
         "1️⃣ Channel join karo\n"
         "2️⃣ Group join karo\n"
         "3️⃣ I Have Joined dabao 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
+# =========================================================
 # START
-# =========================
+# =========================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -120,15 +133,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if not await is_member(user.id, context):
-        await force_join(update, context)
+        await force_join_message(update.message)
         return
 
     await main_menu(update.message)
 
 
-# =========================
+# =========================================================
 # MAIN MENU
-# =========================
+# =========================================================
 
 async def main_menu(message):
 
@@ -184,16 +197,15 @@ async def main_menu(message):
     ]
 
     await message.reply_text(
-        f"🧠 *{BOT_NAME}*\n\n"
+        f"🧠 {BOT_NAME}\n\n"
         "Apna option choose karo 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
-# PRACTICE
-# =========================
+# =========================================================
+# PRACTICE MENU
+# =========================================================
 
 async def practice_menu(query):
 
@@ -225,16 +237,15 @@ async def practice_menu(query):
     ]
 
     await query.message.edit_text(
-        "📚 *Practice Mode*\n\n"
+        "📚 Practice Mode\n\n"
         "Subject choose karo 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
+# =========================================================
 # CLASS MENU
-# =========================
+# =========================================================
 
 async def class_menu(query, subject):
 
@@ -260,16 +271,15 @@ async def class_menu(query, subject):
     ]
 
     await query.message.edit_text(
-        f"📚 *{subject}*\n\n"
+        f"📚 {subject}\n\n"
         "Class choose karo 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
+# =========================================================
 # CHAPTER MENU
-# =========================
+# =========================================================
 
 async def chapter_menu(query, class_number, subject):
 
@@ -310,16 +320,15 @@ async def chapter_menu(query, class_number, subject):
     ])
 
     await query.message.edit_text(
-        f"📚 *Class {class_number} {subject}*\n\n"
+        f"📚 Class {class_number} {subject}\n\n"
         "Chapter choose karo 👇",
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
-# QUESTIONS
-# =========================
+# =========================================================
+# PRACTICE QUESTIONS
+# =========================================================
 
 async def start_question(
     query,
@@ -363,7 +372,7 @@ async def start_question(
         ])
 
     text = (
-        f"🔥 *{question.get('difficulty', 'NEET Level')}*\n\n"
+        f"🔥 {question.get('difficulty', 'NEET Level')}\n\n"
         f"🧠 {question['question']}\n\n"
         "Answer choose karo 👇"
     )
@@ -371,15 +380,18 @@ async def start_question(
     await query.message.edit_text(
         text,
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
+# =========================================================
 # ANSWER
-# =========================
+# =========================================================
 
-async def answer_question(query, question_id, option_index):
+async def answer_question(
+    query,
+    question_id,
+    option_index
+):
 
     questions = load_questions()
 
@@ -392,6 +404,7 @@ async def answer_question(query, question_id, option_index):
     )
 
     if not question:
+
         await query.answer(
             "Question nahi mila.",
             show_alert=True
@@ -399,7 +412,10 @@ async def answer_question(query, question_id, option_index):
         return
 
     selected = question["options"][option_index]
-    correct = selected == question["answer"]
+
+    correct = (
+        selected == question["answer"]
+    )
 
     update_score(
         query.from_user.id,
@@ -407,16 +423,19 @@ async def answer_question(query, question_id, option_index):
     )
 
     if correct:
-        result = "✅ *Correct Answer!*"
+
+        result = "✅ Correct Answer!"
+
     else:
+
         result = (
-            "❌ *Wrong Answer!*\n\n"
+            "❌ Wrong Answer!\n\n"
             f"✅ Correct: {question['answer']}"
         )
 
     text = (
         f"{result}\n\n"
-        f"💡 *Explanation:*\n"
+        "💡 Explanation:\n"
         f"{question['explanation']}"
     )
 
@@ -438,22 +457,124 @@ async def answer_question(query, question_id, option_index):
     await query.message.edit_text(
         text,
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
     )
 
 
-# =========================
+# =========================================================
+# AI DOUBT
+# =========================================================
+
+async def ai_doubt_start(query, context):
+
+    context.user_data["waiting_for_ai"] = True
+
+    await query.message.edit_text(
+        "🤖 AI Doubt Solver\n\n"
+        "Apna NEET doubt message mein bhejo.\n\n"
+        "Example:\n"
+        "Why does increasing temperature affect equilibrium?\n\n"
+        "❌ /cancel se AI mode band kar sakte ho."
+    )
+
+
+async def ai_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not context.user_data.get(
+        "waiting_for_ai",
+        False
+    ):
+        return
+
+    user = update.effective_user
+
+    # Force join check
+    if not await is_member(
+        user.id,
+        context
+    ):
+
+        context.user_data[
+            "waiting_for_ai"
+        ] = False
+
+        await force_join_message(
+            update.message
+        )
+
+        return
+
+    question = update.message.text.strip()
+
+    if question == "/cancel":
+
+        context.user_data[
+            "waiting_for_ai"
+        ] = False
+
+        await update.message.reply_text(
+            "❌ AI Doubt mode closed."
+        )
+
+        return
+
+    if not question:
+
+        await update.message.reply_text(
+            "⚠️ Apna doubt text mein bhejo."
+        )
+
+        return
+
+    # Turn off waiting state
+    context.user_data[
+        "waiting_for_ai"
+    ] = False
+
+    waiting_message = await update.message.reply_text(
+        "🤔 Doubt solve kar raha hoon..."
+    )
+
+    try:
+
+        # Run AI without blocking Telegram
+        answer = await asyncio.to_thread(
+            ask_ai,
+            question
+        )
+
+        await waiting_message.edit_text(
+            "🤖 AI Answer\n\n" + answer
+        )
+
+    except Exception as error:
+
+        print("AI ERROR:", error)
+
+        await waiting_message.edit_text(
+            "⚠️ AI service abhi available nahi hai.\n\n"
+            "Thodi der baad dobara try karo."
+        )
+
+
+# =========================================================
 # PROGRESS
-# =========================
+# =========================================================
 
 async def show_progress(query):
 
-    user = get_user(query.from_user.id)
+    user = get_user(
+        query.from_user.id
+    )
 
     if not user:
+
         await query.message.edit_text(
             "No progress found."
         )
+
         return
 
     score = user[3]
@@ -461,17 +582,16 @@ async def show_progress(query):
     correct = user[5]
 
     await query.message.edit_text(
-        "📊 *My Progress*\n\n"
+        "📊 My Progress\n\n"
         f"🎯 Score: {score}\n"
         f"📝 Attempted: {attempted}\n"
-        f"✅ Correct: {correct}\n",
-        parse_mode="Markdown",
+        f"✅ Correct: {correct}\n"
     )
 
 
-# =========================
+# =========================================================
 # LEADERBOARD
-# =========================
+# =========================================================
 
 async def show_leaderboard(query):
 
@@ -482,11 +602,15 @@ async def show_leaderboard(query):
         await query.message.edit_text(
             "🏆 Leaderboard abhi empty hai."
         )
+
         return
 
-    text = "🏆 *TOP 10 NEET STUDENTS*\n\n"
+    text = "🏆 TOP 10 NEET STUDENTS\n\n"
 
-    for position, user in enumerate(users, start=1):
+    for position, user in enumerate(
+        users,
+        start=1
+    ):
 
         username = user[1] or "Student"
         score = user[2]
@@ -497,16 +621,18 @@ async def show_leaderboard(query):
         )
 
     await query.message.edit_text(
-        text,
-        parse_mode="Markdown",
+        text
     )
 
 
-# =========================
+# =========================================================
 # CALLBACK HANDLER
-# =========================
+# =========================================================
 
-async def button_handler(update, context):
+async def button_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     query = update.callback_query
 
@@ -514,7 +640,10 @@ async def button_handler(update, context):
 
     data = query.data
 
-    # Force Join verification
+    # -------------------------
+    # VERIFY JOIN
+    # -------------------------
+
     if data == "verify_join":
 
         if await is_member(
@@ -523,12 +652,13 @@ async def button_handler(update, context):
         ):
 
             await query.message.edit_text(
-                "🎉 *Verification Successful!*\n\n"
-                "Welcome to NEET Study Hub 2027 ❤️",
-                parse_mode="Markdown",
+                "🎉 Verification Successful!\n\n"
+                "Welcome to NEET Study Hub 2027 ❤️"
             )
 
-            await main_menu(query.message)
+            await main_menu(
+                query.message
+            )
 
         else:
 
@@ -537,18 +667,37 @@ async def button_handler(update, context):
                 show_alert=True
             )
 
-    # Home
+    # -------------------------
+    # HOME
+    # -------------------------
+
     elif data == "home":
 
-        await main_menu(query.message)
+        context.user_data[
+            "waiting_for_ai"
+        ] = False
 
-    # Practice
+        await main_menu(
+            query.message
+        )
+
+    # -------------------------
+    # PRACTICE
+    # -------------------------
+
     elif data == "practice":
 
-        await practice_menu(query)
+        await practice_menu(
+            query
+        )
 
-    # Subject
-    elif data.startswith("subject_"):
+    # -------------------------
+    # SUBJECT
+    # -------------------------
+
+    elif data.startswith(
+        "subject_"
+    ):
 
         subject = data.replace(
             "subject_",
@@ -560,10 +709,18 @@ async def button_handler(update, context):
             subject
         )
 
-    # Class
-    elif data.startswith("class_"):
+    # -------------------------
+    # CLASS
+    # -------------------------
 
-        parts = data.split("_", 2)
+    elif data.startswith(
+        "class_"
+    ):
+
+        parts = data.split(
+            "_",
+            2
+        )
 
         class_number = parts[1]
         subject = parts[2]
@@ -574,8 +731,13 @@ async def button_handler(update, context):
             subject
         )
 
-    # Chapter
-    elif data.startswith("chapter|"):
+    # -------------------------
+    # CHAPTER
+    # -------------------------
+
+    elif data.startswith(
+        "chapter|"
+    ):
 
         parts = data.split("|")
 
@@ -599,8 +761,13 @@ async def button_handler(update, context):
             chapter
         )
 
-    # Answer
-    elif data.startswith("answer|"):
+    # -------------------------
+    # ANSWER
+    # -------------------------
+
+    elif data.startswith(
+        "answer|"
+    ):
 
         parts = data.split("|")
 
@@ -613,36 +780,58 @@ async def button_handler(update, context):
             option_index
         )
 
-    # Progress
+    # -------------------------
+    # AI
+    # -------------------------
+
+    elif data == "ai":
+
+        await ai_doubt_start(
+            query,
+            context
+        )
+
+    # -------------------------
+    # PROGRESS
+    # -------------------------
+
     elif data == "progress":
 
-        await show_progress(query)
+        await show_progress(
+            query
+        )
 
-    # Leaderboard
+    # -------------------------
+    # LEADERBOARD
+    # -------------------------
+
     elif data == "leaderboard":
 
-        await show_leaderboard(query)
+        await show_leaderboard(
+            query
+        )
 
-    # Future features
+    # -------------------------
+    # FUTURE FEATURES
+    # -------------------------
+
     elif data in [
         "pyq",
         "mock",
-        "ai",
         "biology",
         "daily",
         "support"
     ]:
 
         await query.message.edit_text(
-            "🚧 *Ye feature development mein hai.*\n\n"
-            "Jald hi available hoga 🔥",
-            parse_mode="Markdown",
+            "🚧 Ye feature development mein hai.\n\n"
+            "Jald hi available hoga 🔥"
         )
 
 
-# =========================
+# =========================================================
 # MAIN
-# =========================
+# =========================================================
 
 def main():
 
@@ -661,6 +850,7 @@ def main():
         .build()
     )
 
+    # /start
     application.add_handler(
         CommandHandler(
             "start",
@@ -668,9 +858,18 @@ def main():
         )
     )
 
+    # Buttons
     application.add_handler(
         CallbackQueryHandler(
             button_handler
+        )
+    )
+
+    # Normal text messages
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            ai_message
         )
     )
 
@@ -680,6 +879,10 @@ def main():
 
     application.run_polling()
 
+
+# =========================================================
+# START BOT
+# =========================================================
 
 if __name__ == "__main__":
     main()
