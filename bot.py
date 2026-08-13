@@ -1,4 +1,3 @@
-import os
 import json
 import random
 import asyncio
@@ -35,6 +34,13 @@ from ai import ask_ai
 
 
 # =========================================================
+# SETTINGS
+# =========================================================
+
+UPI_ID = "fizannn05@fam"
+
+
+# =========================================================
 # LOAD FILES
 # =========================================================
 
@@ -49,7 +55,7 @@ def load_questions():
 
 
 # =========================================================
-# KEYBOARDS
+# COMMON KEYBOARDS
 # =========================================================
 
 def home_keyboard():
@@ -79,97 +85,10 @@ def back_home_keyboard(back_callback):
 
 
 # =========================================================
-# FORCE JOIN
-# =========================================================
-
-async def is_member(user_id, context):
-
-    try:
-        channel = await context.bot.get_chat_member(
-            CHANNEL_USERNAME,
-            user_id
-        )
-
-        group = await context.bot.get_chat_member(
-            GROUP_USERNAME,
-            user_id
-        )
-
-        allowed = [
-            "member",
-            "administrator",
-            "creator"
-        ]
-
-        return (
-            channel.status in allowed
-            and group.status in allowed
-        )
-
-    except Exception as error:
-        print("JOIN CHECK ERROR:", error)
-        return False
-
-
-async def force_join_message(message):
-
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "📢 Join Channel",
-                url=CHANNEL_URL
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "👥 Join Group",
-                url=GROUP_URL
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "✅ I Have Joined",
-                callback_data="verify_join"
-            )
-        ],
-    ]
-
-    await message.reply_text(
-        "🔐 Join Required\n\n"
-        "NEET Study Hub use karne ke liye pehle "
-        "hamara Channel aur Group join karo.\n\n"
-        "1️⃣ Channel join karo\n"
-        "2️⃣ Group join karo\n"
-        "3️⃣ I Have Joined dabao 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-    )
-
-
-# =========================================================
-# START
-# =========================================================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    user = update.effective_user
-
-    context.user_data["waiting_for_ai"] = False
-
-    add_user(
-        user.id,
-        user.username,
-        user.first_name
-    )
-
-    if not await is_member(user.id, context):
-        await force_join_message(update.message)
-        return
-
-    await main_menu(update.message, edit=False)
-
-
-# =========================================================
 # MAIN MENU
+# IMPORTANT:
+# edit=True means SAME MESSAGE is edited.
+# This prevents duplicate Home menus.
 # =========================================================
 
 async def main_menu(message, edit=False):
@@ -245,7 +164,101 @@ async def main_menu(message, edit=False):
 
 
 # =========================================================
-# PRACTICE SUBJECT
+# FORCE JOIN
+# =========================================================
+
+async def is_member(user_id, context):
+
+    try:
+        channel = await context.bot.get_chat_member(
+            CHANNEL_USERNAME,
+            user_id
+        )
+
+        group = await context.bot.get_chat_member(
+            GROUP_USERNAME,
+            user_id
+        )
+
+        allowed_statuses = [
+            "member",
+            "administrator",
+            "creator"
+        ]
+
+        return (
+            channel.status in allowed_statuses
+            and group.status in allowed_statuses
+        )
+
+    except Exception as error:
+        print("JOIN CHECK ERROR:", error)
+        return False
+
+
+async def force_join_message(message):
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "📢 Join Channel",
+                url=CHANNEL_URL
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "👥 Join Group",
+                url=GROUP_URL
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "✅ I Have Joined",
+                callback_data="verify_join"
+            )
+        ],
+    ]
+
+    await message.reply_text(
+        "🔐 Join Required\n\n"
+        "NEET Study Hub use karne ke liye pehle "
+        "hamara Channel aur Group join karo.\n\n"
+        "1️⃣ Channel join karo\n"
+        "2️⃣ Group join karo\n"
+        "3️⃣ I Have Joined dabao 👇",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+# =========================================================
+# START
+# =========================================================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user = update.effective_user
+
+    context.user_data["waiting_for_ai"] = False
+
+    add_user(
+        user.id,
+        user.username,
+        user.first_name
+    )
+
+    if not await is_member(user.id, context):
+
+        await force_join_message(update.message)
+        return
+
+    await main_menu(
+        update.message,
+        edit=False
+    )
+
+
+# =========================================================
+# PRACTICE MENU
 # =========================================================
 
 async def practice_menu(query):
@@ -284,7 +297,7 @@ async def practice_menu(query):
     await query.message.edit_text(
         "📚 Practice Mode\n\n"
         "Subject choose karo 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -322,7 +335,7 @@ async def class_menu(query, subject):
     await query.message.edit_text(
         f"📚 {subject}\n\n"
         "Class choose karo 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -379,7 +392,7 @@ async def chapter_menu(query, class_number, subject):
     await query.message.edit_text(
         f"📚 Class {class_number} {subject}\n\n"
         "Chapter choose karo 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -391,8 +404,7 @@ async def start_question(
     query,
     class_number,
     subject,
-    chapter,
-    chapter_index
+    chapter
 ):
 
     questions = load_questions()
@@ -408,9 +420,20 @@ async def start_question(
 
         await query.message.edit_text(
             "📚 Is chapter ke questions abhi add nahi hue.",
-            reply_markup=back_home_keyboard(
-                f"class_{class_number}_{subject}"
-            )
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "🔙 Back",
+                        callback_data=(
+                            f"class_{class_number}_{subject}"
+                        )
+                    ),
+                    InlineKeyboardButton(
+                        "🏠 Home",
+                        callback_data="home"
+                    )
+                ]
+            ])
         )
 
         return
@@ -419,14 +442,15 @@ async def start_question(
 
     keyboard = []
 
-    for index, option in enumerate(question["options"]):
+    for index, option in enumerate(
+        question["options"]
+    ):
 
         keyboard.append([
             InlineKeyboardButton(
                 f"{chr(65 + index)}) {option}",
                 callback_data=(
-                    f"answer|{question['id']}|{index}|"
-                    f"{class_number}|{subject}|{chapter_index}"
+                    f"answer|{question['id']}|{index}"
                 )
             )
         ])
@@ -452,7 +476,7 @@ async def start_question(
 
     await query.message.edit_text(
         text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -463,10 +487,7 @@ async def start_question(
 async def answer_question(
     query,
     question_id,
-    option_index,
-    class_number,
-    subject,
-    chapter_index
+    option_index
 ):
 
     questions = load_questions()
@@ -488,15 +509,6 @@ async def answer_question(
 
         return
 
-    if option_index < 0 or option_index >= len(question["options"]):
-
-        await query.answer(
-            "Invalid option.",
-            show_alert=True
-        )
-
-        return
-
     selected = question["options"][option_index]
 
     correct = selected == question["answer"]
@@ -507,8 +519,11 @@ async def answer_question(
     )
 
     if correct:
+
         result = "✅ Correct Answer!"
+
     else:
+
         result = (
             "❌ Wrong Answer!\n\n"
             f"✅ Correct: {question['answer']}"
@@ -523,19 +538,8 @@ async def answer_question(
     keyboard = [
         [
             InlineKeyboardButton(
-                "🔄 More Questions",
-                callback_data=(
-                    f"chapter|{class_number}|"
-                    f"{subject}|{chapter_index}"
-                )
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🔙 Back",
-                callback_data=(
-                    f"class_{class_number}_{subject}"
-                )
+                "📚 Practice",
+                callback_data="practice"
             ),
             InlineKeyboardButton(
                 "🏠 Home",
@@ -546,12 +550,12 @@ async def answer_question(
 
     await query.message.edit_text(
         text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
 # =========================================================
-# AI
+# AI DOUBT
 # =========================================================
 
 async def ai_doubt_start(query, context):
@@ -577,7 +581,7 @@ async def ai_doubt_start(query, context):
         "Example:\n"
         "Why does increasing temperature affect equilibrium?\n\n"
         "❌ /cancel se AI mode band kar sakte ho.",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -652,10 +656,6 @@ async def ai_message(update, context):
             ],
             [
                 InlineKeyboardButton(
-                    "🔙 Back",
-                    callback_data="home"
-                ),
-                InlineKeyboardButton(
                     "🏠 Home",
                     callback_data="home"
                 )
@@ -682,10 +682,6 @@ async def ai_message(update, context):
                 ],
                 [
                     InlineKeyboardButton(
-                        "🔙 Back",
-                        callback_data="home"
-                    ),
-                    InlineKeyboardButton(
                         "🏠 Home",
                         callback_data="home"
                     )
@@ -707,8 +703,7 @@ async def show_progress(query):
     if not user:
 
         await query.message.edit_text(
-            "📊 My Progress\n\n"
-            "Abhi koi progress record nahi hai.",
+            "📊 Abhi tumhara progress available nahi hai.",
             reply_markup=home_keyboard()
         )
 
@@ -718,12 +713,25 @@ async def show_progress(query):
     attempted = user[4]
     correct = user[5]
 
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
+            InlineKeyboardButton(
+                "🏠 Home",
+                callback_data="home"
+            )
+        ]
+    ]
+
     await query.message.edit_text(
         "📊 My Progress\n\n"
         f"🎯 Score: {score}\n"
         f"📝 Attempted: {attempted}\n"
         f"✅ Correct: {correct}\n",
-        reply_markup=back_home_keyboard("home")
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -739,7 +747,18 @@ async def show_leaderboard(query):
 
         await query.message.edit_text(
             "🏆 Leaderboard abhi empty hai.",
-            reply_markup=back_home_keyboard("home")
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "🔙 Back",
+                        callback_data="home"
+                    ),
+                    InlineKeyboardButton(
+                        "🏠 Home",
+                        callback_data="home"
+                    )
+                ]
+            ])
         )
 
         return
@@ -759,9 +778,59 @@ async def show_leaderboard(query):
             f"{score} points\n"
         )
 
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
+            InlineKeyboardButton(
+                "🏠 Home",
+                callback_data="home"
+            )
+        ]
+    ]
+
     await query.message.edit_text(
         text,
-        reply_markup=back_home_keyboard("home")
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+# =========================================================
+# SUPPORT / DONATION
+# =========================================================
+
+async def show_support(query):
+
+    text = (
+        "❤️ Support NEET Study Hub 2027\n\n"
+        "Agar tumhe ye bot useful lagta hai aur "
+        "project ko support karna chahte ho, "
+        "toh apni marzi se donation kar sakte ho. ❤️\n\n"
+        "💳 UPI ID:\n"
+        f"`{UPI_ID}`\n\n"
+        "🙏 Tumhara support project ko aur better "
+        "banane mein help karega."
+    )
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
+            InlineKeyboardButton(
+                "🏠 Home",
+                callback_data="home"
+            )
+        ]
+    ]
+
+    await query.message.edit_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -771,11 +840,24 @@ async def show_leaderboard(query):
 
 async def future_feature(query, title):
 
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
+            InlineKeyboardButton(
+                "🏠 Home",
+                callback_data="home"
+            )
+        ]
+    ]
+
     await query.message.edit_text(
         f"{title}\n\n"
         "🚧 Ye feature development mein hai.\n\n"
         "Jald hi available hoga 🔥",
-        reply_markup=back_home_keyboard("home")
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -791,9 +873,9 @@ async def button_handler(update, context):
 
     data = query.data
 
-    # =====================================================
+    # -----------------------------------------------------
     # HOME
-    # =====================================================
+    # -----------------------------------------------------
 
     if data == "home":
 
@@ -804,11 +886,13 @@ async def button_handler(update, context):
             edit=True
         )
 
-    # =====================================================
-    # VERIFY JOIN
-    # =====================================================
+        return
 
-    elif data == "verify_join":
+    # -----------------------------------------------------
+    # VERIFY JOIN
+    # -----------------------------------------------------
+
+    if data == "verify_join":
 
         if await is_member(
             query.from_user.id,
@@ -816,11 +900,6 @@ async def button_handler(update, context):
         ):
 
             context.user_data["waiting_for_ai"] = False
-
-            await query.message.edit_text(
-                "🎉 Verification Successful!\n\n"
-                "Welcome to NEET Study Hub 2027 ❤️"
-            )
 
             await main_menu(
                 query.message,
@@ -834,21 +913,23 @@ async def button_handler(update, context):
                 show_alert=True
             )
 
-    # =====================================================
+        return
+
+    # -----------------------------------------------------
     # PRACTICE
-    # =====================================================
+    # -----------------------------------------------------
 
-    elif data == "practice":
-
-        context.user_data["waiting_for_ai"] = False
+    if data == "practice":
 
         await practice_menu(query)
 
-    # =====================================================
-    # SUBJECT
-    # =====================================================
+        return
 
-    elif data.startswith("subject_"):
+    # -----------------------------------------------------
+    # SUBJECT
+    # -----------------------------------------------------
+
+    if data.startswith("subject_"):
 
         subject = data.replace(
             "subject_",
@@ -860,19 +941,23 @@ async def button_handler(update, context):
             subject
         )
 
-    # =====================================================
-    # CLASS
-    # =====================================================
+        return
 
-    elif data.startswith("class_"):
+    # -----------------------------------------------------
+    # CLASS
+    # -----------------------------------------------------
+
+    if data.startswith("class_"):
 
         parts = data.split("_", 2)
 
         if len(parts) != 3:
+
             await query.answer(
                 "Invalid class.",
                 show_alert=True
             )
+
             return
 
         class_number = parts[1]
@@ -884,34 +969,52 @@ async def button_handler(update, context):
             subject
         )
 
-    # =====================================================
-    # CHAPTER
-    # =====================================================
+        return
 
-    elif data.startswith("chapter|"):
+    # -----------------------------------------------------
+    # CHAPTER
+    # -----------------------------------------------------
+
+    if data.startswith("chapter|"):
 
         parts = data.split("|")
 
         if len(parts) != 4:
+
             await query.answer(
                 "Invalid chapter.",
                 show_alert=True
             )
+
             return
 
         class_number = parts[1]
         subject = parts[2]
-        chapter_index = int(parts[3])
+
+        try:
+            chapter_index = int(parts[3])
+
+        except ValueError:
+
+            await query.answer(
+                "Invalid chapter.",
+                show_alert=True
+            )
+
+            return
 
         chapters = load_chapters()
 
-        chapter = (
-            chapters
-            .get(str(class_number), {})
-            .get(subject, [])
-        )
+        try:
 
-        if chapter_index >= len(chapter):
+            chapter = (
+                chapters
+                [str(class_number)]
+                [subject]
+                [chapter_index]
+            )
+
+        except (KeyError, IndexError):
 
             await query.answer(
                 "Chapter nahi mila.",
@@ -920,122 +1023,144 @@ async def button_handler(update, context):
 
             return
 
-        selected_chapter = chapter[chapter_index]
-
         await start_question(
             query,
             class_number,
             subject,
-            selected_chapter,
-            chapter_index
+            chapter
         )
 
-    # =====================================================
-    # ANSWER
-    # =====================================================
+        return
 
-    elif data.startswith("answer|"):
+    # -----------------------------------------------------
+    # ANSWER
+    # -----------------------------------------------------
+
+    if data.startswith("answer|"):
 
         parts = data.split("|")
 
-        if len(parts) != 6:
+        if len(parts) != 3:
+
             await query.answer(
                 "Invalid answer.",
                 show_alert=True
             )
+
             return
 
         question_id = parts[1]
-        option_index = int(parts[2])
-        class_number = parts[3]
-        subject = parts[4]
-        chapter_index = int(parts[5])
+
+        try:
+            option_index = int(parts[2])
+
+        except ValueError:
+
+            await query.answer(
+                "Invalid option.",
+                show_alert=True
+            )
+
+            return
 
         await answer_question(
             query,
             question_id,
-            option_index,
-            class_number,
-            subject,
-            chapter_index
+            option_index
         )
 
-    # =====================================================
-    # AI
-    # =====================================================
+        return
 
-    elif data == "ai":
+    # -----------------------------------------------------
+    # AI
+    # -----------------------------------------------------
+
+    if data == "ai":
 
         await ai_doubt_start(
             query,
             context
         )
 
-    # =====================================================
-    # PROGRESS
-    # =====================================================
+        return
 
-    elif data == "progress":
+    # -----------------------------------------------------
+    # PROGRESS
+    # -----------------------------------------------------
+
+    if data == "progress":
 
         await show_progress(query)
 
-    # =====================================================
-    # LEADERBOARD
-    # =====================================================
+        return
 
-    elif data == "leaderboard":
+    # -----------------------------------------------------
+    # LEADERBOARD
+    # -----------------------------------------------------
+
+    if data == "leaderboard":
 
         await show_leaderboard(query)
 
-    # =====================================================
-    # FUTURE FEATURES
-    # =====================================================
+        return
 
-    elif data == "pyq":
+    # -----------------------------------------------------
+    # SUPPORT
+    # -----------------------------------------------------
+
+    if data == "support":
+
+        await show_support(query)
+
+        return
+
+    # -----------------------------------------------------
+    # FUTURE FEATURES
+    # -----------------------------------------------------
+
+    if data == "pyq":
 
         await future_feature(
             query,
             "📝 NEET PYQ"
         )
 
-    elif data == "mock":
+        return
+
+    if data == "mock":
 
         await future_feature(
             query,
             "🎯 Mock Test"
         )
 
-    elif data == "biology":
+        return
+
+    if data == "biology":
 
         await future_feature(
             query,
             "🫀 3D Biology"
         )
 
-    elif data == "daily":
+        return
+
+    if data == "daily":
 
         await future_feature(
             query,
             "🔥 Daily Challenge"
         )
 
-    elif data == "support":
+        return
 
-        await future_feature(
-            query,
-            "❤️ Support"
-        )
+    # -----------------------------------------------------
+    # UNKNOWN BUTTON
+    # -----------------------------------------------------
 
-
-# =========================================================
-# ERROR HANDLER
-# =========================================================
-
-async def error_handler(update, context):
-
-    print(
-        "BOT ERROR:",
-        context.error
+    await query.answer(
+        "⚠️ Ye option abhi available nahi hai.",
+        show_alert=True
     )
 
 
@@ -1048,7 +1173,8 @@ def main():
     if not BOT_TOKEN:
 
         raise ValueError(
-            "BOT_TOKEN missing!"
+            "BOT_TOKEN missing! "
+            "Check config.py / GitHub Secret."
         )
 
     init_database()
@@ -1060,6 +1186,7 @@ def main():
         .build()
     )
 
+    # /start
     application.add_handler(
         CommandHandler(
             "start",
@@ -1067,21 +1194,19 @@ def main():
         )
     )
 
+    # Inline buttons
     application.add_handler(
         CallbackQueryHandler(
             button_handler
         )
     )
 
+    # AI text messages
     application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             ai_message
         )
-    )
-
-    application.add_error_handler(
-        error_handler
     )
 
     print(
@@ -1090,6 +1215,10 @@ def main():
 
     application.run_polling()
 
+
+# =========================================================
+# RUN
+# =========================================================
 
 if __name__ == "__main__":
     main()
