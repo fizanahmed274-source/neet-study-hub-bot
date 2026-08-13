@@ -49,16 +49,18 @@ def load_questions():
 
 
 # =========================================================
-# COMMON BUTTONS
+# KEYBOARDS
 # =========================================================
 
-def home_button():
-    return [
-        InlineKeyboardButton(
-            "🏠 Home",
-            callback_data="home"
-        )
-    ]
+def home_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🏠 Home",
+                callback_data="home"
+            )
+        ]
+    ])
 
 
 def back_home_keyboard(back_callback):
@@ -163,14 +165,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await force_join_message(update.message)
         return
 
-    await main_menu(update.message)
+    await main_menu(update.message, edit=False)
 
 
 # =========================================================
 # MAIN MENU
 # =========================================================
 
-async def main_menu(message):
+async def main_menu(message, edit=False):
 
     keyboard = [
         [
@@ -223,11 +225,23 @@ async def main_menu(message):
         ],
     ]
 
-    await message.reply_text(
+    text = (
         f"🧠 {BOT_NAME}\n\n"
-        "Apna option choose karo 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        "Apna option choose karo 👇"
     )
+
+    markup = InlineKeyboardMarkup(keyboard)
+
+    if edit:
+        await message.edit_text(
+            text,
+            reply_markup=markup
+        )
+    else:
+        await message.reply_text(
+            text,
+            reply_markup=markup
+        )
 
 
 # =========================================================
@@ -256,6 +270,10 @@ async def practice_menu(query):
             )
         ],
         [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
             InlineKeyboardButton(
                 "🏠 Home",
                 callback_data="home"
@@ -373,7 +391,8 @@ async def start_question(
     query,
     class_number,
     subject,
-    chapter
+    chapter,
+    chapter_index
 ):
 
     questions = load_questions()
@@ -389,20 +408,9 @@ async def start_question(
 
         await query.message.edit_text(
             "📚 Is chapter ke questions abhi add nahi hue.",
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        "🔙 Back",
-                        callback_data=(
-                            f"class_{class_number}_{subject}"
-                        )
-                    ),
-                    InlineKeyboardButton(
-                        "🏠 Home",
-                        callback_data="home"
-                    )
-                ]
-            ])
+            reply_markup=back_home_keyboard(
+                f"class_{class_number}_{subject}"
+            )
         )
 
         return
@@ -417,7 +425,8 @@ async def start_question(
             InlineKeyboardButton(
                 f"{chr(65 + index)}) {option}",
                 callback_data=(
-                    f"answer|{question['id']}|{index}"
+                    f"answer|{question['id']}|{index}|"
+                    f"{class_number}|{subject}|{chapter_index}"
                 )
             )
         ])
@@ -454,7 +463,10 @@ async def start_question(
 async def answer_question(
     query,
     question_id,
-    option_index
+    option_index,
+    class_number,
+    subject,
+    chapter_index
 ):
 
     questions = load_questions()
@@ -471,6 +483,15 @@ async def answer_question(
 
         await query.answer(
             "Question nahi mila.",
+            show_alert=True
+        )
+
+        return
+
+    if option_index < 0 or option_index >= len(question["options"]):
+
+        await query.answer(
+            "Invalid option.",
             show_alert=True
         )
 
@@ -502,11 +523,20 @@ async def answer_question(
     keyboard = [
         [
             InlineKeyboardButton(
-                "📚 Practice",
-                callback_data="practice"
+                "🔄 More Questions",
+                callback_data=(
+                    f"chapter|{class_number}|"
+                    f"{subject}|{chapter_index}"
+                )
             )
         ],
         [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data=(
+                    f"class_{class_number}_{subject}"
+                )
+            ),
             InlineKeyboardButton(
                 "🏠 Home",
                 callback_data="home"
@@ -530,6 +560,10 @@ async def ai_doubt_start(query, context):
 
     keyboard = [
         [
+            InlineKeyboardButton(
+                "🔙 Back",
+                callback_data="home"
+            ),
             InlineKeyboardButton(
                 "🏠 Home",
                 callback_data="home"
@@ -577,7 +611,12 @@ async def ai_message(update, context):
         await update.message.reply_text(
             "❌ AI mode closed.",
             reply_markup=InlineKeyboardMarkup([
-                home_button()
+                [
+                    InlineKeyboardButton(
+                        "🏠 Home",
+                        callback_data="home"
+                    )
+                ]
             ])
         )
 
@@ -613,6 +652,10 @@ async def ai_message(update, context):
             ],
             [
                 InlineKeyboardButton(
+                    "🔙 Back",
+                    callback_data="home"
+                ),
+                InlineKeyboardButton(
                     "🏠 Home",
                     callback_data="home"
                 )
@@ -639,6 +682,10 @@ async def ai_message(update, context):
                 ],
                 [
                     InlineKeyboardButton(
+                        "🔙 Back",
+                        callback_data="home"
+                    ),
+                    InlineKeyboardButton(
                         "🏠 Home",
                         callback_data="home"
                     )
@@ -660,10 +707,9 @@ async def show_progress(query):
     if not user:
 
         await query.message.edit_text(
-            "No progress found.",
-            reply_markup=InlineKeyboardMarkup([
-                home_button()
-            ])
+            "📊 My Progress\n\n"
+            "Abhi koi progress record nahi hai.",
+            reply_markup=home_keyboard()
         )
 
         return
@@ -677,9 +723,7 @@ async def show_progress(query):
         f"🎯 Score: {score}\n"
         f"📝 Attempted: {attempted}\n"
         f"✅ Correct: {correct}\n",
-        reply_markup=InlineKeyboardMarkup([
-            home_button()
-        ])
+        reply_markup=back_home_keyboard("home")
     )
 
 
@@ -695,9 +739,7 @@ async def show_leaderboard(query):
 
         await query.message.edit_text(
             "🏆 Leaderboard abhi empty hai.",
-            reply_markup=InlineKeyboardMarkup([
-                home_button()
-            ])
+            reply_markup=back_home_keyboard("home")
         )
 
         return
@@ -719,14 +761,12 @@ async def show_leaderboard(query):
 
     await query.message.edit_text(
         text,
-        reply_markup=InlineKeyboardMarkup([
-            home_button()
-        ])
+        reply_markup=back_home_keyboard("home")
     )
 
 
 # =========================================================
-# FUTURE FEATURE SCREEN
+# FUTURE FEATURE
 # =========================================================
 
 async def future_feature(query, title):
@@ -735,18 +775,7 @@ async def future_feature(query, title):
         f"{title}\n\n"
         "🚧 Ye feature development mein hai.\n\n"
         "Jald hi available hoga 🔥",
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "🔙 Back",
-                    callback_data="home"
-                ),
-                InlineKeyboardButton(
-                    "🏠 Home",
-                    callback_data="home"
-                )
-            ]
-        ])
+        reply_markup=back_home_keyboard("home")
     )
 
 
@@ -762,14 +791,23 @@ async def button_handler(update, context):
 
     data = query.data
 
+    # =====================================================
     # HOME
+    # =====================================================
+
     if data == "home":
 
         context.user_data["waiting_for_ai"] = False
 
-        await main_menu(query.message)
+        await main_menu(
+            query.message,
+            edit=True
+        )
 
+    # =====================================================
     # VERIFY JOIN
+    # =====================================================
+
     elif data == "verify_join":
 
         if await is_member(
@@ -777,12 +815,17 @@ async def button_handler(update, context):
             context
         ):
 
+            context.user_data["waiting_for_ai"] = False
+
             await query.message.edit_text(
                 "🎉 Verification Successful!\n\n"
                 "Welcome to NEET Study Hub 2027 ❤️"
             )
 
-            await main_menu(query.message)
+            await main_menu(
+                query.message,
+                edit=True
+            )
 
         else:
 
@@ -791,12 +834,20 @@ async def button_handler(update, context):
                 show_alert=True
             )
 
+    # =====================================================
     # PRACTICE
+    # =====================================================
+
     elif data == "practice":
+
+        context.user_data["waiting_for_ai"] = False
 
         await practice_menu(query)
 
+    # =====================================================
     # SUBJECT
+    # =====================================================
+
     elif data.startswith("subject_"):
 
         subject = data.replace(
@@ -809,10 +860,20 @@ async def button_handler(update, context):
             subject
         )
 
+    # =====================================================
     # CLASS
+    # =====================================================
+
     elif data.startswith("class_"):
 
         parts = data.split("_", 2)
+
+        if len(parts) != 3:
+            await query.answer(
+                "Invalid class.",
+                show_alert=True
+            )
+            return
 
         class_number = parts[1]
         subject = parts[2]
@@ -823,10 +884,20 @@ async def button_handler(update, context):
             subject
         )
 
+    # =====================================================
     # CHAPTER
+    # =====================================================
+
     elif data.startswith("chapter|"):
 
         parts = data.split("|")
+
+        if len(parts) != 4:
+            await query.answer(
+                "Invalid chapter.",
+                show_alert=True
+            )
+            return
 
         class_number = parts[1]
         subject = parts[2]
@@ -836,33 +907,63 @@ async def button_handler(update, context):
 
         chapter = (
             chapters
-            [str(class_number)]
-            [subject]
-            [chapter_index]
+            .get(str(class_number), {})
+            .get(subject, [])
         )
+
+        if chapter_index >= len(chapter):
+
+            await query.answer(
+                "Chapter nahi mila.",
+                show_alert=True
+            )
+
+            return
+
+        selected_chapter = chapter[chapter_index]
 
         await start_question(
             query,
             class_number,
             subject,
-            chapter
+            selected_chapter,
+            chapter_index
         )
 
+    # =====================================================
     # ANSWER
+    # =====================================================
+
     elif data.startswith("answer|"):
 
         parts = data.split("|")
 
+        if len(parts) != 6:
+            await query.answer(
+                "Invalid answer.",
+                show_alert=True
+            )
+            return
+
         question_id = parts[1]
         option_index = int(parts[2])
+        class_number = parts[3]
+        subject = parts[4]
+        chapter_index = int(parts[5])
 
         await answer_question(
             query,
             question_id,
-            option_index
+            option_index,
+            class_number,
+            subject,
+            chapter_index
         )
 
+    # =====================================================
     # AI
+    # =====================================================
+
     elif data == "ai":
 
         await ai_doubt_start(
@@ -870,17 +971,26 @@ async def button_handler(update, context):
             context
         )
 
+    # =====================================================
     # PROGRESS
+    # =====================================================
+
     elif data == "progress":
 
         await show_progress(query)
 
+    # =====================================================
     # LEADERBOARD
+    # =====================================================
+
     elif data == "leaderboard":
 
         await show_leaderboard(query)
 
+    # =====================================================
     # FUTURE FEATURES
+    # =====================================================
+
     elif data == "pyq":
 
         await future_feature(
@@ -915,6 +1025,18 @@ async def button_handler(update, context):
             query,
             "❤️ Support"
         )
+
+
+# =========================================================
+# ERROR HANDLER
+# =========================================================
+
+async def error_handler(update, context):
+
+    print(
+        "BOT ERROR:",
+        context.error
+    )
 
 
 # =========================================================
@@ -956,6 +1078,10 @@ def main():
             filters.TEXT & ~filters.COMMAND,
             ai_message
         )
+    )
+
+    application.add_error_handler(
+        error_handler
     )
 
     print(
